@@ -4,6 +4,7 @@ import { billTotal, dueDateFor, monthName, pkr, today } from '../data'
 import { uid, useStore } from '../store'
 import { Badge, Bars, Card, Empty, Field, Stat, downloadCsv } from '../ui'
 import { NocCertificate } from './shared'
+import { Ring, TowerHeat } from '../viz'
 
 function useFinance(state: State) {
   return useMemo(() => {
@@ -23,10 +24,11 @@ export function ManagementDashboard() {
   const { state } = useStore()
   const f = useFinance(state)
   const periods = [...new Set(state.bills.map(b => b.period))].sort()
+  const latestPeriod = periods[periods.length - 1]
   const byPeriod = periods.map(p => {
     const bs = state.bills.filter(b => b.period === p)
     const paid = bs.filter(b => b.status === 'Paid').length
-    return { label: monthName(p), value: Math.round((paid / bs.length) * 100), tone: paid / bs.length > 0.8 ? 'good' : 'warn' }
+    return { label: monthName(p).replace(' 2026', ''), value: Math.round((paid / bs.length) * 100), tone: paid / bs.length > 0.8 ? 'good' : 'warn' }
   })
   const methods = ['Cash', 'Online transfer', 'Direct deposit', 'Payment gateway'].map(m => ({ label: m, value: f.confirmed.filter(p => p.method === m).reduce((s, p) => s + p.amount, 0) }))
   const byType = (['B', 'E'] as const).map(t => {
@@ -43,8 +45,16 @@ export function ManagementDashboard() {
         <Stat label="Outstanding" value={pkr(f.outstanding)} tone="bad" sub={`${f.outByApt.size.toLocaleString()} apartments with dues`} />
         <Stat label="Open complaints" value={openComplaints} sub={`${state.nocs.filter(n => n.status === 'Requested').length} NOC requests pending`} />
       </div>
-      <div className="grid2">
-        <Card title="Bills paid by period (%)"><Bars rows={byPeriod} format={n => `${n}%`} /></Card>
+      <div className="grid2 wide-left">
+        <Card title={`Bills paid by tower, ${monthName(latestPeriod)}`}>
+          <TowerHeat apartments={state.apartments} bills={state.bills} />
+        </Card>
+        <Card title="Collection rate">
+          <div className="ring-wrap"><Ring value={f.collected / f.billed} label="of all billing" /></div>
+          <Bars rows={byPeriod} format={n => `${n}%`} />
+        </Card>
+      </div>
+      <div className="grid3">
         <Card title="Collections by payment channel"><Bars rows={methods} format={pkr} /></Card>
         <Card title="Outstanding by apartment type"><Bars rows={byType} format={pkr} /></Card>
         <Card title="Site expenditure by category"><Bars rows={cats} format={pkr} /></Card>

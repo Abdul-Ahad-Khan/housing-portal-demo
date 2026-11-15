@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Role } from './data'
-import { DEMO_APT, outstandingFor, pkr } from './data'
+import { DEMO_APT, monthName, outstandingFor, pkr } from './data'
+import { Skyline } from './viz'
 import { useStore } from './store'
-import { Card } from './ui'
+import { Card, Icon } from './ui'
 import { AllotteeBills, AllotteeComplaints, AllotteeNoc, AllotteeNotices, AllotteeOverview, AllotteeTenants, AnnouncementList } from './pages/Allottee'
 import { AssociationOverview, CashDesk, ComplaintQueue, Expenses, Vendors, VerifyQueue } from './pages/Association'
 import { AdminUsers, Announcements, Apartments, BillRun, Defaulters, ManagementDashboard, NocApprovals, Reports, SettingsPage } from './pages/Management'
@@ -13,34 +14,34 @@ type Nav = { key: string; label: string; icon: string }
 
 const NAV: Record<Role, Nav[]> = {
   allottee: [
-    { key: 'home', label: 'Overview', icon: '🏠' },
-    { key: 'bills', label: 'Bills & payments', icon: '💳' },
-    { key: 'complaints', label: 'Complaints', icon: '🛠️' },
-    { key: 'tenants', label: 'Tenants', icon: '👥' },
-    { key: 'noc', label: 'NOC request', icon: '📄' },
-    { key: 'notices', label: 'Notices', icon: '📢' },
+    { key: 'home', label: 'Overview', icon: 'home' },
+    { key: 'bills', label: 'Bills & payments', icon: 'card' },
+    { key: 'complaints', label: 'Complaints', icon: 'wrench' },
+    { key: 'tenants', label: 'Tenants', icon: 'users' },
+    { key: 'noc', label: 'NOC request', icon: 'doc' },
+    { key: 'notices', label: 'Notices', icon: 'bell' },
   ],
-  tenant: [{ key: 'bills', label: 'Maintenance bills', icon: '💳' }],
+  tenant: [{ key: 'bills', label: 'Maintenance bills', icon: 'card' }],
   association: [
-    { key: 'home', label: 'Overview', icon: '🏠' },
-    { key: 'verify', label: 'Verify payments', icon: '✅' },
-    { key: 'cash', label: 'Cash desk', icon: '💵' },
-    { key: 'complaints', label: 'Complaints', icon: '🛠️' },
-    { key: 'vendors', label: 'Vendors', icon: '🤝' },
-    { key: 'expenses', label: 'Expenses & petty cash', icon: '🧾' },
+    { key: 'home', label: 'Overview', icon: 'home' },
+    { key: 'verify', label: 'Verify payments', icon: 'check' },
+    { key: 'cash', label: 'Cash desk', icon: 'cash' },
+    { key: 'complaints', label: 'Complaints', icon: 'wrench' },
+    { key: 'vendors', label: 'Vendors', icon: 'vendor' },
+    { key: 'expenses', label: 'Expenses & petty cash', icon: 'receipt' },
   ],
   management: [
-    { key: 'home', label: 'Dashboard', icon: '📊' },
-    { key: 'billing', label: 'Bill generation', icon: '🧮' },
-    { key: 'defaulters', label: 'Unpaid & notices', icon: '⚠️' },
-    { key: 'noc', label: 'NOC approvals', icon: '📄' },
-    { key: 'announcements', label: 'Announcements', icon: '📢' },
-    { key: 'reports', label: 'Reports', icon: '📑' },
-    { key: 'settings', label: 'Billing rules', icon: '⚙️' },
+    { key: 'home', label: 'Dashboard', icon: 'chart' },
+    { key: 'billing', label: 'Bill generation', icon: 'calc' },
+    { key: 'defaulters', label: 'Unpaid & notices', icon: 'alert' },
+    { key: 'noc', label: 'NOC approvals', icon: 'doc' },
+    { key: 'announcements', label: 'Announcements', icon: 'bell' },
+    { key: 'reports', label: 'Reports', icon: 'report' },
+    { key: 'settings', label: 'Billing rules', icon: 'gear' },
   ],
   admin: [
-    { key: 'home', label: 'Users & rights', icon: '🔐' },
-    { key: 'apartments', label: 'Apartments', icon: '🏢' },
+    { key: 'home', label: 'Users & rights', icon: 'lock' },
+    { key: 'apartments', label: 'Apartments', icon: 'building' },
   ],
 }
 
@@ -64,43 +65,59 @@ function Login() {
   const [armed, setArmed] = useState(false)
   const tenant = state.tenants.find(t => t.active)
   const demo: { role: Role; name: string; desc: string; aptId?: string; user: string }[] = [
-    { role: 'allottee', name: 'Ahmed Raza', aptId: DEMO_APT, user: 'allottee.b07302', desc: `Apartment ${DEMO_APT} · bills, payments, complaints, tenants, NOC` },
-    { role: 'tenant', name: tenant?.name ?? 'Tenant', aptId: tenant?.aptId, user: tenant?.username ?? '—', desc: tenant ? `Apartment ${tenant.aptId} · can only view and pay maintenance` : 'No active tenant – register one as allottee' },
-    { role: 'association', name: 'Shahid Mehmood', user: 'assoc.desk', desc: 'Verify slips, cash receipts, complaints, vendors, petty cash' },
-    { role: 'management', name: 'Dr. Saima Noor', user: 'authority.director', desc: 'Dashboards, bill runs, surcharge, notices, NOC approvals, reports' },
-    { role: 'admin', name: 'System Admin', user: 'admin', desc: 'User accounts, roles and rights, master data' },
+    { role: 'allottee', name: 'Ahmed Raza', aptId: DEMO_APT, user: 'allottee.b07302', desc: `Owner of apartment ${DEMO_APT}. Pays bills, raises complaints, registers tenants, requests an NOC.` },
+    { role: 'tenant', name: tenant?.name ?? 'Tenant', aptId: tenant?.aptId, user: tenant?.username ?? '—', desc: tenant ? `Renting apartment ${tenant.aptId}. Can only view and pay maintenance bills.` : 'No active tenant. Register one as the allottee first.' },
+    { role: 'association', name: 'Shahid Mehmood', user: 'assoc.desk', desc: 'Site office. Verifies payment slips, takes cash, handles complaints, vendors and petty cash.' },
+    { role: 'management', name: 'Dr. Saima Noor', user: 'authority.director', desc: 'Housing Authority. Issues bills, tracks collections, approves NOCs, reads the reports.' },
+    { role: 'admin', name: 'System Admin', user: 'admin', desc: 'Manages user accounts, roles and apartment records.' },
   ]
   if (board) return <PublicBoard onBack={() => setBoard(false)} />
+  const latest = state.bills.reduce((m, b) => (b.period > m ? b.period : m), '')
+  const latestBills = state.bills.filter(b => b.period === latest)
+  const paidShare = latestBills.length ? latestBills.filter(b => b.status === 'Paid').length / latestBills.length : 0
   return (
     <div className="login">
-      <div className="login-card">
-        <div className="brand big"><span className="logo">HA</span><div><strong>Housing Management Portal</strong><span>Maintenance billing & resident services</span></div></div>
-        <p className="muted">Interactive demo with fictional data for {state.apartments.length.toLocaleString()} apartments in 43 towers. Pick a role to sign in.</p>
+      <section className="login-hero">
+        <div className="brand"><span className="logo">HA</span><div><strong>Housing Management Portal</strong><span>Affordable Housing Project</span></div></div>
+        <h1 className="hero-title">Maintenance, payments and resident services for every home in the project.</h1>
+        <p className="hero-sub">Bills, payment slips, complaints, tenants and NOCs in one place for the Authority, the Association and {state.apartments.length.toLocaleString()} households across 43 towers.</p>
+        <div className="hero-sky">
+          <Skyline apartments={state.apartments} bills={state.bills} rows={3} />
+          <p className="sky-caption"><i className="dot-on" /> Each window is an apartment. It lights up when its {monthName(latest)} bill is paid: {Math.round(paidShare * 100)}% so far.</p>
+        </div>
+      </section>
+      <section className="login-panel">
+        <h2>Sign in to the demo</h2>
+        <p className="muted">Choose a role to see the portal from that person's side. All names and figures are fictional.</p>
         <div className="roles">
           {demo.map(d => (
             <button key={d.role} className="role" disabled={d.role === 'tenant' && !tenant} onClick={() => setSession({ role: d.role, name: d.name, aptId: d.aptId })}>
-              <span className="role-t">{ROLE_LABEL[d.role]}</span>
-              <span className="role-n">{d.name} <span className="mono muted">@{d.user}</span></span>
-              <span className="role-d">{d.desc}</span>
+              <span className={`avatar r-${d.role}`}>{d.name.replace('Dr. ', '').split(' ').map(w => w[0]).slice(0, 2).join('')}</span>
+              <span className="role-body">
+                <span className="role-t">{ROLE_LABEL[d.role]}</span>
+                <span className="role-n">{d.name}</span>
+                <span className="role-d">{d.desc}</span>
+              </span>
+              <span className="role-go" aria-hidden="true">›</span>
             </button>
           ))}
         </div>
         <div className="row-between">
-          <button className="btn ghost" onClick={() => setBoard(true)}>📢 Public notice board</button>
+          <button className="btn ghost" onClick={() => setBoard(true)}>Public notice board</button>
           <button className="btn ghost small" onClick={() => {
             if (armed) { reset(); setArmed(false); toast('Demo data reset') }
             else { setArmed(true); toast('Click again to confirm reset'); window.setTimeout(() => setArmed(false), 3000) }
           }}>{armed ? 'Confirm reset' : 'Reset demo data'}</button>
         </div>
-      </div>
-      <p className="foot muted small">Demo prototype · production build: ASP.NET Core, Blazor, SQL Server</p>
+        <p className="foot muted small">Prototype for review. The production system is built on ASP.NET Core, Blazor and SQL Server.</p>
+      </section>
     </div>
   )
 }
 
 function PublicBoard({ onBack }: { onBack: () => void }) {
   return (
-    <div className="login">
+    <div className="board-page">
       <div className="login-card wide">
         <div className="row-between"><h2>Public notice board</h2><button className="btn ghost" onClick={onBack}>← Back to sign in</button></div>
         <AnnouncementList publicOnly />
@@ -147,7 +164,7 @@ function Shell() {
             const b = badge(n.key)
             return (
               <button key={n.key} className={`nav ${n.key === current.key ? 'on' : ''}`} onClick={() => go(n.key)}>
-                <span>{n.icon}</span>{n.label}{b ? <span className="nav-b">{b}</span> : null}
+                <Icon name={n.icon} />{n.label}{b ? <span className="nav-b">{b}</span> : null}
               </button>
             )
           })}
@@ -160,9 +177,12 @@ function Shell() {
       {menu && <div className="scrim" onClick={() => setMenu(false)} />}
       <main>
         <header className="top">
-          <button className="btn ghost burger" onClick={() => setMenu(true)} aria-label="Menu">☰</button>
-          <h1>{current.label}</h1>
-          <span className="demo-tag">DEMO</span>
+          <button className="btn ghost burger" onClick={() => setMenu(true)} aria-label="Menu"><Icon name="menu" /></button>
+          <div className="top-t">
+            <h1>{current.label}</h1>
+            <span className="muted small">{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</span>
+          </div>
+          <span className="demo-tag">Demo data</span>
         </header>
         <div className="content">{body}</div>
       </main>

@@ -4,6 +4,7 @@ import { billTotal, monthName, outstandingFor, pkr, today } from '../data'
 import { uid, useStore } from '../store'
 import { Badge, Card, Empty, Field, Stat } from '../ui'
 import { BillsPanel, NocCertificate } from './shared'
+import { TowerView } from '../viz'
 
 export function AllotteeOverview({ aptId, go }: { aptId: string; go: (p: string) => void }) {
   const { state } = useStore()
@@ -13,13 +14,34 @@ export function AllotteeOverview({ aptId, go }: { aptId: string; go: (p: string)
   const latest = state.bills.filter(b => b.aptId === aptId).sort((a, b) => b.period.localeCompare(a.period))[0]
   const open = state.complaints.filter(c => c.aptId === aptId && c.status !== 'Resolved').length
   const notices = state.notices.filter(n => n.aptId === aptId)
+  const hour = new Date().getHours()
+  const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
   return (
     <>
+      <section className="home-hero">
+        <div className="home-hero-text">
+          <p className="hello">{greet}, {al.name.split(' ')[0]}</p>
+          <h2>Apartment {apt.id}</h2>
+          <p className="muted">Tower {apt.tower}, Type {apt.type}, {apt.area.toLocaleString()} sq ft</p>
+          <div className={`due ${due ? 'owing' : 'clear'}`}>
+            <span className="due-l">{due ? 'Amount due' : 'Balance'}</span>
+            <span className="due-v">{pkr(due)}</span>
+            <span className="due-s">{due ? `${latest ? monthName(latest.period) : ''} bill due ${latest?.dueDate ?? ''}` : 'All maintenance dues are clear'}</span>
+          </div>
+          <div className="row-gap">
+            {due ? <button className="btn lg" onClick={() => go('bills')}>Pay {pkr(due)}</button> : <button className="btn lg" onClick={() => go('noc')}>Request an NOC</button>}
+            <button className="btn ghost lg" onClick={() => go('complaints')}>Report a problem</button>
+          </div>
+        </div>
+        <div className="home-hero-art">
+          <TowerView apartments={state.apartments} bills={state.bills} aptId={aptId} />
+          <p className="art-key"><i className="dot-me" />Your home <i className="dot-on" />Paid this month <i className="dot-off" />Unpaid</p>
+        </div>
+      </section>
       <div className="stats">
-        <Stat label="Outstanding balance" value={pkr(due)} tone={due ? 'bad' : 'good'} sub={due ? 'Pay online or upload a slip' : 'All dues clear'} />
-        <Stat label="Latest bill" value={latest ? pkr(billTotal(latest)) : '—'} sub={latest ? `${monthName(latest.period)} · ${latest.status}` : ''} />
-        <Stat label="Open complaints" value={open} />
-        <Stat label="Registered tenants" value={state.tenants.filter(t => t.aptId === aptId && t.active).length} />
+        <Stat label="Latest bill" value={latest ? pkr(billTotal(latest)) : '—'} sub={latest ? `${monthName(latest.period)}, ${latest.status.toLowerCase()}` : ''} />
+        <Stat label="Open complaints" value={open} sub={open ? 'Being handled by the Association' : 'Nothing open'} />
+        <Stat label="Registered tenants" value={state.tenants.filter(t => t.aptId === aptId && t.active).length} sub="Tenants can pay bills for this home" />
       </div>
       {notices.length > 0 && (
         <div className="alert">
